@@ -49,7 +49,7 @@ RECENT_SENTENCES = text(
 
 load_dotenv()
 host = os.environ.get("HOST", default="localhost")
-port = os.environ.get("PORT", default=9091)
+port = int(os.environ.get("PORT", default="9091"))
 pwd = os.environ.get("PASSWORD", default="PG PWD")
 user = os.environ.get("USER", default="PG USER")
 database = os.environ.get("DATABASE", default="Sentences")

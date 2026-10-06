@@ -114,7 +114,7 @@ function wireForm({ onPending, onResult, onError }) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const sentence = document.getElementById("sentence").value.trim();
-    const username = document.getElementById("username").value.trim();
+    const username = document.getElementById("username")?.value.trim();
     if (!sentence) return;
     submit.disabled = true;
     onPending && onPending();

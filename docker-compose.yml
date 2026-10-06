@@ -40,6 +40,8 @@ services:
       DATABASE: db
     depends_on:
       - db
+    volumes:
+      - ./static:/app/static:ro
 
 volumes:
   pgdata:
