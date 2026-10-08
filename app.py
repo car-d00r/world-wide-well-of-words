@@ -42,11 +42,6 @@ RANDOM_SENTENCES = text(
     "select sentence, username, count from sentences order by random() limit :limit;"
 )
 
-# Most recently awarded sentences.
-RECENT_SENTENCES = text(
-    "select sentence, username, count, awarded from sentences order by awarded desc limit :limit;"
-)
-
 load_dotenv()
 host = os.environ.get("HOST", default="localhost")
 port = int(os.environ.get("PORT", default="9091"))
@@ -110,13 +105,6 @@ class RandomSentence(BaseModel):
     sentence: str
     username: Optional[str] = None
     count: int
-
-
-class RecentSentence(BaseModel):
-    sentence: str
-    username: Optional[str] = None
-    count: int
-    awarded: datetime
 
 
 # TODO: Replace
@@ -215,14 +203,6 @@ class ApiController(Controller):
             result = await conn.execute(RANDOM_SENTENCES, {"limit": limit})
             rows = result.mappings().all()
         return [RandomSentence(**row) for row in rows]
-
-    @get("/recent")
-    async def recent(self, request: Request, limit: int = 12) -> list[RecentSentence]:
-        engine = request.app.state.engine
-        async with engine.connect() as conn:
-            result = await conn.execute(RECENT_SENTENCES, {"limit": limit})
-            rows = result.mappings().all()
-        return [RecentSentence(**row) for row in rows]
 
 
 app = Litestar(

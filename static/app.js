@@ -34,21 +34,11 @@ const API = {
     if (!res.ok) throw new Error(`server returned ${res.status}`);
     return (await res.json()).count;
   },
-  // Recent submissions for the idle feed. This endpoint does not exist on the
-  // backend yet (see BACKEND_NOTES.md §4) — when it 404s we fall back to sample
-  // data so the page still looks alive in dev.
-  async recent(limit = 12) {
-    const res = await fetch(`/api/recent?limit=${limit}`);
-    if (!res.ok) throw new Error(`server returned ${res.status}`);
-    return res.json(); // expected: [{sentence, username, count, awarded}]
-  },
-  // Top travelers by number of original sentences. Falls back to samples on 404.
   async leaderboard(limit = 10) {
     const res = await fetch(`/api/leaderboard?limit=${limit}`);
     if (!res.ok) throw new Error(`server returned ${res.status}`);
     return res.json(); // expected: [{username, unique_count, total_count}]
   },
-  // A random sampling of distinct sentences for the right-rail scroller.
   async randomOriginals(limit = 24) {
     const res = await fetch(`/api/random?limit=${limit}`);
     if (!res.ok) throw new Error(`server returned ${res.status}`);
@@ -56,30 +46,6 @@ const API = {
   },
 };
 
-// Used only when /api/recent isn't available yet.
-const SAMPLE_RECENT = [
-  { sentence: "the moon tastes faintly of forgotten birthdays", username: "lyra", count: 1 },
-  { sentence: "i alphabetized my regrets and started over", username: "anon", count: 3 },
-  { sentence: "every escalator is just a staircase having a good day", username: "doug", count: 1 },
-  { sentence: "my houseplant has opinions about my posture", username: "fern", count: 2 },
-  { sentence: "we are all just weather that learned to worry", username: "marlowe", count: 1 },
-  { sentence: "the printer knows what i did", username: "anon", count: 7 },
-  { sentence: "somewhere a clock is bragging about being right twice", username: "kit", count: 1 },
-  { sentence: "i named my fear and now it has a LinkedIn", username: "june", count: 4 },
-  { sentence: "the ocean is just sky that gave up flying", username: "anon", count: 1 },
-  { sentence: "all maps are confessions, if you fold them right", username: "wren", count: 2 },
-];
-
-// Used only when /api/leaderboard isn't available yet.
-const SAMPLE_LEADERBOARD = [
-  { username: "lyra", unique_count: 47, total_count: 58 },
-  { username: "marlowe", unique_count: 39, total_count: 44 },
-  { username: "doug", unique_count: 31, total_count: 40 },
-  { username: "wren", unique_count: 24, total_count: 29 },
-  { username: "june", unique_count: 18, total_count: 25 },
-  { username: "kit", unique_count: 12, total_count: 15 },
-  { username: "fern", unique_count: 9, total_count: 11 },
-];
 
 const shuffle = (a) => {
   const b = a.slice();
@@ -172,11 +138,6 @@ function renderThirds(opts = {}) {
   const statBlock = (n, l) =>
     `<div class="stat"><div class="num">${n}</div><div class="lbl">${esc(l)}</div></div>`;
 
-  // Populate the idle middle-third with a scrolling feed of recent submissions,
-  // styled like an old search-engine results page. Clicking one drops it into
-  // the search box (interactive, no framework needed).
-  if (opts.idleFeed) renderRecentFeed(statsEl);
-
   // Side rails (present only on the wide layout): left leaderboard, right
   // random-originals scroller. Both are self-contained and stay put across
   // searches, so they only render once on load.
@@ -216,64 +177,17 @@ function renderThirds(opts = {}) {
         answerEl.innerHTML =
           `<div class="verdict">${esc(L.lose)}</div><div class="quip">${esc(r.message)}</div>`;
       }
-      // The submission just changed the corpus total — reflect it in the banner.
       updateSubmissionCount();
     },
   });
 }
 
-// Builds the scrolling "recently said" feed inside the given element.
-// Falls back to SAMPLE_RECENT if /api/recent isn't live yet.
-async function renderRecentFeed(statsEl) {
-  let items;
-  try {
-    items = await API.recent(12);
-    if (!Array.isArray(items) || !items.length) items = SAMPLE_RECENT;
-  } catch (_) {
-    items = SAMPLE_RECENT; // endpoint not built yet — see BACKEND_NOTES.md §4
-  }
-
-  const times = (n) =>
-    n > 1 ? `said ${n} times` : "a genuine original";
-  const row = (it) => {
-    const who = it.username ? esc(it.username) : "some traveler";
-    return (
-      `<div class="result">` +
-      `<span class="r-link" data-s="${esc(it.sentence)}">${esc(it.sentence)}</span>` +
-      `<div class="r-meta">&mdash; ${who} <b>&middot; ${esc(times(it.count || 1))}</b></div>` +
-      `</div>`
-    );
-  };
-
-  // Duplicate the list so the CSS translateY(-50%) loop is seamless.
-  const rows = items.map(row).join("");
-  statsEl.innerHTML =
-    `<div class="ticker"><div class="ticker-track">${rows}${rows}</div></div>`;
-
-  // Click a recent sentence to borrow it into the search box.
-  const input = document.getElementById("sentence");
-  statsEl.querySelectorAll(".r-link").forEach((el) => {
-    el.addEventListener("click", () => {
-      el.classList.add("seen");
-      if (input) {
-        input.value = el.dataset.s;
-        input.focus();
-      }
-    });
-  });
-}
-
 // Left rail: a "Hall of Fame" leaderboard of the travelers with the most
-// original sentences. Falls back to SAMPLE_LEADERBOARD if /api/leaderboard
-// isn't live yet or the corpus is empty.
+// original sentences.
 async function renderLeaderboard(el) {
   let items;
-  try {
-    items = await API.leaderboard(10);
-    if (!Array.isArray(items) || !items.length) items = SAMPLE_LEADERBOARD;
-  } catch (_) {
-    items = SAMPLE_LEADERBOARD;
-  }
+  items = await API.leaderboard(10);
+  if (!Array.isArray(items) || !items.length) items = [];
 
   el.innerHTML = items
     .map((it, i) => {
@@ -291,24 +205,18 @@ async function renderLeaderboard(el) {
 
 // Right rail: a slow vertical scroller of random distinct sentences from the
 // corpus. Shuffled on load so it feels different every visit; clicking one
-// drops it into the search box. Falls back to SAMPLE_RECENT when the endpoint
-// isn't available or the corpus is empty.
+// drops it into the search box.
 async function renderScroller(el) {
   let items;
   let isSample = false;
-  try {
-    items = await API.randomOriginals(24);
-    if (!Array.isArray(items) || !items.length) [items, isSample] = [SAMPLE_RECENT, true];
-  } catch (_) {
-    [items, isSample] = [SAMPLE_RECENT, true];
-  }
+  items = await API.randomOriginals(24);
+  if (!Array.isArray(items) || !items.length) [items, isSample] = [[], true];
   el._items = shuffle(items);
   el._isSample = isSample;
   drawScroller(el);
 }
 
 // Puts a freshly-awarded original at the top of the right rail without a reload.
-// Replaces the sample sentences if those were standing in for an empty corpus.
 function addToScroller(el, it) {
   const rest = el._isSample ? [] : (el._items || []).filter((x) => x.sentence !== it.sentence);
   el._items = [it, ...rest];
@@ -330,17 +238,6 @@ function drawScroller(el) {
   // Duplicate for the seamless translateY(-50%) loop, same as the middle feed.
   const rows = items.map(item).join("");
   el.innerHTML = `<div class="scroller-track">${rows}${rows}</div>`;
-
-  const input = document.getElementById("sentence");
-  el.querySelectorAll(".s-link").forEach((s) => {
-    s.addEventListener("click", () => {
-      s.classList.add("seen");
-      if (input) {
-        input.value = s.dataset.s;
-        input.focus();
-      }
-    });
-  });
 }
 
 // Banner: total submissions across the whole corpus, shown as a retro counter.

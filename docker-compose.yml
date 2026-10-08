@@ -22,17 +22,12 @@ services:
       POSTGRES_DB: db            # app.py's db_uri hardcodes /db, so keep this "db"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   app:
     build: .
     network_mode: host
-    # depends_on with a health condition is ignored by Podman 3.4.4, so the app
-    # can start before Postgres is ready. restart makes it retry until the DB is
-    # up instead of dying on the first connection error.
     restart: on-failure
     environment:
-      # Host networking -> Postgres is reachable on localhost:5432.
       HOST: localhost
       PORT: 5432
       USER: sentences
