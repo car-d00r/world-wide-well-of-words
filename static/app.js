@@ -133,6 +133,8 @@ function wireForm({ onPending, onResult, onError }) {
       }
       onResult({
         unique,
+        sentence,
+        username: username || null,
         message: r.message || pick(unique ? QUIPS.win : QUIPS.lose),
         others: r.number_other_submissions,
         totals,
@@ -206,6 +208,8 @@ function renderThirds(opts = {}) {
           statBlock(r.totals.submissionCount, L.totalLabel);
         answerEl.innerHTML =
           `<div class="verdict">${esc(L.win)}</div><div class="quip">${esc(r.message)}</div>`;
+        // A new original belongs in the right rail right away, not after a reload.
+        if (scrollEl) addToScroller(scrollEl, { sentence: r.sentence, username: r.username, count: 1 });
       } else {
         setState("state-lose");
         statsEl.innerHTML = statBlock(r.others, L.priorLabel);
@@ -291,14 +295,29 @@ async function renderLeaderboard(el) {
 // isn't available or the corpus is empty.
 async function renderScroller(el) {
   let items;
+  let isSample = false;
   try {
     items = await API.randomOriginals(24);
-    if (!Array.isArray(items) || !items.length) items = SAMPLE_RECENT;
+    if (!Array.isArray(items) || !items.length) [items, isSample] = [SAMPLE_RECENT, true];
   } catch (_) {
-    items = SAMPLE_RECENT;
+    [items, isSample] = [SAMPLE_RECENT, true];
   }
-  items = shuffle(items);
+  el._items = shuffle(items);
+  el._isSample = isSample;
+  drawScroller(el);
+}
 
+// Puts a freshly-awarded original at the top of the right rail without a reload.
+// Replaces the sample sentences if those were standing in for an empty corpus.
+function addToScroller(el, it) {
+  const rest = el._isSample ? [] : (el._items || []).filter((x) => x.sentence !== it.sentence);
+  el._items = [it, ...rest];
+  el._isSample = false;
+  drawScroller(el);
+}
+
+function drawScroller(el) {
+  const items = el._items;
   const item = (it) => {
     const who = it.username ? esc(it.username) : "some traveler";
     return (
