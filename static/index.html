@@ -30,7 +30,9 @@
     display:grid;grid-template-rows:auto auto auto;align-content:start;row-gap:10px;
   }
   .zone{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px 0;min-height:0}
-  .zone.mid{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .zone.mid{border-top:1px solid transparent;border-bottom:1px solid transparent}
+  /* separators only appear once a result is showing */
+  body:is(.state-win,.state-lose) .zone.mid{border-color:var(--line)}
 
   /* ---------- TOP THIRD: logo + search ---------- */
   .logo{font-family:var(--serif);font-weight:700;font-size:clamp(30px,5vw,46px);letter-spacing:-1px;line-height:1.1;margin-bottom:6px}
@@ -70,6 +72,48 @@
     text-decoration:underline;cursor:pointer;
   }
   .linkish:focus-visible{outline:1px dotted var(--accent)}
+  /* login + create-account modals: styled as win98 windows to match the side rails */
+  .modal98{
+    margin:auto;
+    width:min(400px, calc(100% - 32px));
+    padding:0 22px 20px;
+    background:var(--face);border:2px outset var(--face);
+    box-shadow:4px 4px 0 rgba(26,26,36,.35);
+    font-family:var(--web);color:var(--ink);
+  }
+  .modal98::backdrop{background:rgba(42,42,145,.22)}
+  .modal-form{display:flex;flex-direction:column;gap:4px;text-align:left;max-width:none}
+  /* the heading becomes the window's title bar, bleeding to the edges */
+  .auth-titlebar{
+    margin:0 -22px 16px;padding:7px 6px 7px 12px;
+    background:linear-gradient(90deg, var(--accent), #5b2fe0);color:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .auth-titlebar h2{font-family:var(--web);font-size:15px;font-weight:700;letter-spacing:.5px}
+  /* win98-style close button */
+  .auth-x{
+    width:24px;height:22px;padding:0;display:grid;place-items:center;
+    background:var(--face);border:2px outset var(--face);color:#000;
+    font:700 16px/1 var(--web);cursor:pointer;
+  }
+  .auth-x:active{border-style:inset}
+  .auth-x:focus-visible{outline:1px dotted #fff;outline-offset:1px}
+  /* submit uses the "Has anyone ever said..." logo colors */
+  .modal-form button[type="submit"]{
+    background:linear-gradient(90deg, #1a3fd6, #5b2fe0, #9b2fb5);color:#fff;
+    border-color:#5b2fe0;font-weight:700;letter-spacing:.5px;
+  }
+  .modal-form button[type="submit"]:hover{filter:brightness(1.1)}
+  .modal-form label{font-size:14px;color:var(--muted);margin-top:8px}
+  .modal-form .name{width:100%}
+  .field-hint{font-size:12px;color:var(--muted);line-height:1.4}
+  .modal-form [role="alert"]{color:var(--accent-2);font-size:12px;font-weight:700;margin-top:6px}
+  .modal-form .btns{margin-top:14px}
+  .modal-form > p:last-child{
+    margin-top:14px;padding-top:10px;border-top:1px solid #b8b4ac;
+    text-align:center;font-size:14px;color:var(--muted);
+  }
+  .switch-text{display:block;font-family:var(--serif);font-style:italic;font-size:16px;margin-bottom:4px}
   .zone.bot{ margin-top:100px; }
 
   /* ---------- MIDDLE THIRD: recent feed -> stats ---------- */
@@ -103,7 +147,6 @@
   .verdict{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:14px}
   .quip{font-family:var(--serif);font-size:23px;line-height:1.4;color:var(--ink);max-width:600px}
   .hint{color:var(--muted);font-size:12px;font-style:italic}
-  .marquee-tip{color:var(--muted);font-size:12px}
 
   /* ---------- TOP BANNER ---------- */
   .banner{
@@ -233,7 +276,6 @@
     <!-- Reply Block-->
     <section class="zone bot">
       <div class="answer" id="answer">
-        <div class="marquee-tip">Tip: click any sentence above to borrow it &mdash; if you dare.</div>
       </div>
     </section>
 
@@ -252,6 +294,60 @@
       </div>
     </aside>
   </div>
+
+  <!-- Log in Modal -->
+  <dialog id="auth-modal" class="modal98" aria-labelledby="auth-title">
+    <form id="auth-form" class="modal-form">
+      <div class="auth-titlebar">
+        <h2 id="auth-title">log in</h2>
+        <button id="auth-cancel" class="auth-x" type="button" aria-label="close">&times;</button>
+      </div>
+      <label for="auth-username">username</label>
+      <input id="auth-username" class="name" autocomplete="username" required />
+
+      <label for="auth-password">password</label>
+      <input id="auth-password" class="name" type="password" autocomplete="current-password" minlength="8" required />
+      <p id="auth-error" role="alert" hidden></p>
+      <div class="btns">
+        <button id="auth-submit" class="btn98" type="submit">log in</button>
+      </div>
+      <p>
+        <span id="auth-switch-text" class="switch-text">yet to enter your name in the history books (don't have an account)?</span>
+        <button id="auth-toggle" class="linkish" type="button">become remembered (create account)</button>
+      </p>
+    </form>
+  </dialog>
+
+  <!-- Create Account Modal -->
+  <dialog id="create-acnt-modal" class="modal98" aria-labelledby="create-acnt-title">
+    <form id="create-acnt-form" class="modal-form">
+      <div class="auth-titlebar">
+        <h2 id="create-acnt-title">create account</h2>
+        <button id="create-acnt-cancel" class="auth-x" type="button" aria-label="close">&times;</button>
+      </div>
+      <label for="create-acnt-username">username</label>
+      <input id="create-acnt-username" class="name" autocomplete="username" required />
+
+      <label for="create-acnt-password">password</label>
+      <input id="create-acnt-password" class="name" type="password" autocomplete="new-password"
+             minlength="8" required
+             pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}"
+             aria-describedby="create-acnt-password-hint" />
+      <p id="create-acnt-password-hint" class="field-hint">
+        at least 8 characters, with an uppercase letter, a lowercase letter, a number, and a punctuation mark
+      </p>
+      <label for="create-acnt-confirm-password">confirm password</label>
+      <input id="create-acnt-confirm-password" class="name" type="password" autocomplete="new-password" minlength="8" required />
+      <p id="create-acnt-error" role="alert" hidden></p>
+      <div class="btns">
+        <button id="create-acnt-submit" class="btn98" type="submit">create account</button>
+      </div>
+      <p>
+        <span id="create-acnt-switch-text" class="switch-text">has your journey already begun (already have an account)?</span>
+        <button id="create-acnt-toggle" class="linkish" type="button">remind the world of your name (log in)</button>
+      </p>
+    </form>
+  </dialog>
 
   <script src="app.js?v=3"></script>
   <script>renderThirds({ idleFeed:false, labels:{ win:"original", lose:"already said" } });</script>
